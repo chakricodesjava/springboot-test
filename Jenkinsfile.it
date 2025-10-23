@@ -1,0 +1,43 @@
+pipeline {
+  agent {
+    // Agent must have Docker available to run Testcontainers
+    label 'docker'
+  }
+  options {
+    timestamps()
+    ansiColor('xterm')
+  }
+  tools {
+    jdk 'JDK17'
+  }
+  environment {
+    MAVEN_OPTS = '-Dmaven.test.failure.ignore=false'
+    // If Docker is remote, set DOCKER_HOST here (optional)
+    // DOCKER_HOST = 'tcp://docker:2375'
+  }
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+    stage('Verify Docker') {
+      steps {
+        sh 'docker version'
+      }
+    }
+    stage('Integration Tests (Failsafe, *IT)') {
+      steps {
+        sh 'chmod +x mvnw'
+        // Run only integration tests (Failsafe). Skip unit tests (Surefire)
+        sh './mvnw -B -q clean verify -DskipTests=true -Dit.test="com.example.it.**.*IT"'
+      }
+    }
+  }
+  post {
+    always {
+      junit allowEmptyResults: true, testResults: 'target/failsafe-reports/*.xml'
+      archiveArtifacts artifacts: 'target/failsafe-reports/*.xml, target/surefire-reports/*.xml', allowEmptyArchive: true
+    }
+  }
+}

@@ -1,0 +1,34 @@
+pipeline {
+  agent any
+  options {
+    timestamps()
+    ansiColor('xterm')
+  }
+  tools {
+    // Configure 'JDK17' in Jenkins Global Tool Configuration
+    jdk 'JDK17'
+  }
+  environment {
+    MAVEN_OPTS = '-Dmaven.test.failure.ignore=false'
+  }
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+    stage('Unit & Slice Tests (fast)') {
+      steps {
+        sh 'chmod +x mvnw'
+        // Run only unit tests (Surefire). Skip integration tests (Failsafe)
+        sh './mvnw -B -q clean verify -DskipITs=true'
+      }
+    }
+  }
+  post {
+    always {
+      junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
+      archiveArtifacts artifacts: 'target/**/*.jar, target/surefire-reports/*.xml', allowEmptyArchive: true
+    }
+  }
+}
